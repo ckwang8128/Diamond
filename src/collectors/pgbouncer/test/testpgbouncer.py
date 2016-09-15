@@ -48,6 +48,20 @@ class TestPgbouncerCollector(CollectorTestCase):
     @run_only_if_psycopg2_is_available
     @patch.object(PgbouncerCollector, '_get_stats_by_database')
     @patch.object(PgbouncerCollector, 'publish')
+    def test_get_internal_stats(self, publish, _get_stats_by_database):
+        _get_stats_by_database.return_value = {'foo': {'bar': 42}}
+
+        self.collector.collect()
+
+        _get_stats_by_database.assert_called_with(
+            'localhost', '6432', 'postgres', '')
+
+        self.assertPublished(publish, 'default.foo.bar', 42)
+        # TODO: CHECK REST
+
+    @run_only_if_psycopg2_is_available
+    @patch.object(PgbouncerCollector, '_get_stats_by_database')
+    @patch.object(PgbouncerCollector, 'publish')
     def test_instance_names(self, publish, _get_stats_by_database):
         def side_effect(host, port, user, password):
             if (host, port) == ('127.0.0.1', '6432'):

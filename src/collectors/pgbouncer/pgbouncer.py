@@ -96,6 +96,29 @@ class PgbouncerCollector(diamond.collector.Collector):
                         self._get_metric_name(name, database, stat_name),
                         stat_value)
 
+            # Also publish internal stats for host
+            internal_stats = self._get_internal_stats(host, port, user, password)
+            for stat_name, stat_value in internal_stats.iteritems():
+                self.publish('.'.join(host, 'stats', stat_name), stat_value)
+
+    def _get_internal_stats(self, host, port, user, password):
+        conn = psycopg2.connect(database='pgbouncer',
+                                user=user,
+                                password=password,
+                                host=host,
+                                port=port)
+        # Avoid using transactions, set isolation level to autocommit
+        conn.set_isolation_level(0)
+
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor.execute('SHOW LISTS')
+        internal_stats = defaultdict(int)
+        for row in cursor.fetchall():
+            stats = row.copy()
+            internal_stats[stats['list']] = stats['items']
+
+        return internal_stats
+
     def _get_metric_name(self, name, database, stat_name):
         name = name.replace('.', '_').replace(':', '_').strip()
         return '.'.join([name, database, stat_name])
